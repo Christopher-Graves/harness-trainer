@@ -57,8 +57,10 @@ export async function runTrainingSession(options: TrainingOptions): Promise<Trai
   
   console.log(chalk.blue(`\n🎯 Training ${spec.agentId} for ${iterations} iterations...`));
   console.log(chalk.dim(`   Judge model: ${judgeModel}`));
+  console.log(chalk.dim(`   Agent model: ${spec.model?.primary || 'default'}`));
   console.log(chalk.dim(`   Runtime: ${runtime}`));
   console.log(chalk.dim(`   Workspace: ${workspacePath}`));
+  console.log(chalk.dim(`   Timeout: ${Math.round(timeoutMs / 1000)}s per iteration`));
   
   // Training loop
   for (let i = 0; i < iterations; i++) {

@@ -143,12 +143,36 @@ async function runWithOpenClaw(
   
   console.log(chalk.dim(`   Model: ${model}`));
   console.log(chalk.dim(`   Task: ${testCase.name}`));
+  console.log(chalk.dim(`   Timeout: ${Math.round(timeoutMs / 1000)}s`));
   
   // Start spinner while waiting for API
-  const stopSpinner = startSpinner('Waiting for agent response...');
+  const stopSpinner = startSpinner('Calling LLM API...');
   
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
+        'X-Title': 'Harness Trainer',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -167,20 +191,20 @@ async function runWithOpenClaw(
       }),
     });
     
+    // Stop spinner
+    stopSpinner();
+    
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenRouter API error: ${response.status} ${error}`);
+      throw new Error(`OpenRouter API error (${response.status}): ${error}`);
     }
     
     const data = await response.json();
     const output = data.choices?.[0]?.message?.content || '';
     const tokenUsage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
     
-    // Stop spinner
-    stopSpinner();
-    
     if (!output) {
-      throw new Error('Empty response from API');
+      throw new Error('Empty response from API (no content in choices)');
     }
     
     // Save output to file for inspection
@@ -198,11 +222,29 @@ async function runWithOpenClaw(
       },
     };
   } catch (error: any) {
-    console.log(chalk.red(`   API Error: ${error.message}`));
+    // Stop spinner on error
+    stopSpinner();
+    
+    // Provide clear error messages
+    let errorMessage = error.message;
+    if (error.name === 'AbortError') {
+      errorMessage = `Timeout: Agent took longer than ${Math.round(timeoutMs / 1000)}s. Try increasing timeout or check API key.`;
+    } else if (error.message.includes('API key')) {
+      errorMessage = 'API Key Error: Check your OPENROUTER_API_KEY in .env file';
+    } else if (error.message.includes('401')) {
+      errorMessage = 'Authentication Error (401): Invalid API key';
+    } else if (error.message.includes('429')) {
+      errorMessage = 'Rate Limit (429): Too many requests. Wait a moment and retry.';
+    } else if (error.message.includes('500') || error.message.includes('503')) {
+      errorMessage = 'API Server Error: OpenRouter is having issues. Retry in a minute.';
+    }
+    
+    console.log(chalk.red(`   ✗ ${errorMessage}`));
+    
     return {
       success: false,
       output: '',
-      error: error.message,
+      error: errorMessage,
     };
   }
 }
