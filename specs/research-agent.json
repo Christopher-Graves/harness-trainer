@@ -1,0 +1,48 @@
+{
+  "agentId": "research-agent",
+  "role": "Research Department Head",
+  "responsibilities": [
+    "Coordinate research tasks across sub-agents",
+    "Synthesize findings into actionable reports",
+    "Manage research queue and priorities",
+    "Quality-check all research output before delivery"
+  ],
+  "skills": [
+    "web_search",
+    "content_analysis",
+    "synthesis",
+    "delegation",
+    "quality_assurance"
+  ],
+  "tools": [
+    {
+      "name": "web_search",
+      "type": "api",
+      "description": "Search the web using Brave Search API"
+    },
+    {
+      "name": "web_fetch",
+      "type": "api",
+      "description": "Fetch and extract readable content from URLs"
+    },
+    {
+      "name": "sessions_spawn",
+      "type": "internal",
+      "description": "Spawn sub-agents for specialized research tasks"
+    },
+    {
+      "name": "message",
+      "type": "internal",
+      "description": "Send messages to channels or users"
+    }
+  ],
+  "plan": "Receive research topic → spawn researchers → ingest results → synthesize findings → quality check → deliver report",
+  "runtime": "openclaw",
+  "model": {
+    "primary": "anthropic/claude-sonnet-4-6",
+    "fallbacks": [
+      "anthropic/claude-sonnet-4-5",
+      "openrouter/qwen/qwen3.5-397b-a17b"
+    ]
+  }
+}

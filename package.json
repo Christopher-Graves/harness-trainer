@@ -1,0 +1,54 @@
+{
+  "name": "harness-trainer",
+  "version": "0.1.0",
+  "description": "Autonomous agent harness training framework - inspired by Karpathy's AutoResearch and Anthropic's long-running agent patterns",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "harness-trainer": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "train": "tsx src/cli.ts train",
+    "generate": "tsx src/cli.ts generate",
+    "eval": "tsx src/cli.ts eval",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "agent",
+    "harness",
+    "ai",
+    "llm",
+    "autonomous",
+    "training",
+    "evaluation"
+  ],
+  "author": "Chris",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "glob": "^10.4.5",
+    "inquirer": "^10.2.2",
+    "ora": "^8.1.1",
+    "yaml": "^2.6.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
