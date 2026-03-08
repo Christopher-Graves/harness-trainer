@@ -1,8 +1,8 @@
 # Training Report: linkedin-writer
 
-**Started:** 3/8/2026, 8:34:56 AM
-**Completed:** 3/8/2026, 8:34:56 AM
-**Iterations:** 2
+**Started:** 3/8/2026, 12:38:16 PM
+**Completed:** 3/8/2026, 12:38:16 PM
+**Iterations:** 1
 **Final Score:** 0.000
 
 ## Score History
@@ -14,7 +14,7 @@
 ## Key Findings
 
 ### Best Performance
-- **Iteration:** 1
+- **Iteration:** 0
 - **Score:** 0.000
 - **Task:** test-1-write
 

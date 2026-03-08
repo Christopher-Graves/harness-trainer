@@ -1,0 +1,27 @@
+{
+  "agentId": "linkedin-writer",
+  "startedAt": "2026-03-08T16:38:16.950Z",
+  "iterations": 1,
+  "evalResults": [
+    {
+      "taskId": "test-1-write",
+      "timestamp": "2026-03-08T16:38:16.951Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OPENROUTER_API_KEY not set in .env file",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    }
+  ],
+  "harnessVersions": [],
+  "status": "completed",
+  "finalScore": 0,
+  "completedAt": "2026-03-08T16:38:16.951Z"
+}

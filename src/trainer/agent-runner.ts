@@ -173,23 +173,6 @@ async function runWithOpenClaw(
     });
     
     clearTimeout(timeoutId);
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
-        'X-Title': 'Harness Trainer',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-    });
     
     // Stop spinner
     stopSpinner();
