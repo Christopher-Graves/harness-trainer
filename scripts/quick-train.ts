@@ -58,13 +58,16 @@ async function quickTrain(specPath: string, iterations: number = 3) {
   console.log(chalk.dim('─'.repeat(50)));
   console.log(chalk.bold(`Average Score: ${avgScore.toFixed(1)}/10`));
   
+  const shareableFile = `${spec.agentId}-results.md`;
   console.log(chalk.dim(`\n📄 Full results: results/${spec.agentId}-${new Date().toISOString().split('T')[0]}.md`));
+  console.log(chalk.green(`📎 Shareable results: results/${shareableFile}`));
   
   console.log(chalk.blue('\n💡 Next Steps:'));
-  console.log('   1. Review results in results/ folder');
-  console.log('   2. Edit harness/SOUL.md based on feedback');
-  console.log('   3. Run again to see if scores improve:');
-  console.log(chalk.dim(`      npm run train -- agent-workspaces/${spec.agentId} -i ${iterations}`));
+  console.log('   1. Open results/' + shareableFile);
+  console.log('   2. Send that file to your AI assistant');
+  console.log('   3. Edit harness/SOUL.md based on feedback');
+  console.log('   4. Run again to see if scores improve:');
+  console.log(chalk.dim(`      npm run quick -- specs/${spec.agentId}.json ${iterations}`));
   console.log('');
 }
 
