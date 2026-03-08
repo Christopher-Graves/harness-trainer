@@ -1,0 +1,43 @@
+{
+  "agentId": "linkedin-writer",
+  "startedAt": "2026-03-08T12:34:56.427Z",
+  "iterations": 2,
+  "evalResults": [
+    {
+      "taskId": "test-1-write",
+      "timestamp": "2026-03-08T12:34:56.428Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OPENROUTER_API_KEY not set in .env file",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    },
+    {
+      "taskId": "test-2-craft",
+      "timestamp": "2026-03-08T12:34:56.429Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OPENROUTER_API_KEY not set in .env file",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    }
+  ],
+  "harnessVersions": [],
+  "status": "completed",
+  "finalScore": 0,
+  "completedAt": "2026-03-08T12:34:56.429Z"
+}
