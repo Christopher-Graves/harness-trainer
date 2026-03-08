@@ -3,6 +3,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { AgentSpec, TestCase } from '../types/schemas.js';
+import dotenv from 'dotenv';
+
+// Load .env for API keys
+dotenv.config();
 
 interface RunResult {
   success: boolean;
@@ -75,9 +79,10 @@ export async function runAgent(options: {
 }
 
 /**
- * Runs agent using OpenClaw's sessions_spawn API.
+ * Runs agent using OpenRouter API (simulating OpenClaw agent execution).
  * 
- * This is the primary runtime for our harness.
+ * This allows testing the full loop without needing OpenClaw runtime.
+ * Uses the agent's SOUL.md as system prompt.
  */
 async function runWithOpenClaw(
   workspacePath: string,
@@ -85,51 +90,110 @@ async function runWithOpenClaw(
   testCase: TestCase,
   timeoutMs: number
 ): Promise<RunResult> {
-  // Load the agent's runtime adapter
-  const adapterPath = join(workspacePath, 'runtime', 'adapter.js');
+  const apiKey = process.env.OPENROUTER_API_KEY;
   
-  if (!existsSync(adapterPath)) {
-    throw new Error(`Runtime adapter not found at ${adapterPath}`);
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY not set in .env file');
   }
   
-  // For OpenClaw, we need to spawn a session via the OpenClaw API
-  // This is a placeholder - in production, this would call sessions_spawn
-  // For now, we'll simulate with a direct execution
+  console.log(chalk.dim('   Using OpenRouter API (OpenClaw mode)...'));
   
-  console.log(chalk.dim('   Using OpenClaw runtime adapter...'));
+  // Load agent's SOUL.md for system prompt
+  const soulPath = join(workspacePath, 'harness', 'SOUL.md');
+  if (!existsSync(soulPath)) {
+    throw new Error(`SOUL.md not found at ${soulPath}`);
+  }
+  const systemPrompt = readFileSync(soulPath, 'utf-8');
   
-  // Execute the task via the adapter
-  const adapterScript = readFileSync(adapterPath, 'utf-8');
+  // Build the user prompt from test case
+  const userPrompt = buildAgentPrompt(testCase, spec);
   
-  // Create a temporary task file
-  const taskFile = join(workspacePath, 'tests', 'current-task.json');
-  writeFileSync(taskFile, JSON.stringify({
-    task: testCase.task,
-    expectedOutput: testCase.expectedOutput,
-    successCriteria: testCase.successCriteria,
-  }, null, 2));
+  // Call OpenRouter API
+  const model = spec.model?.primary || 'anthropic/claude-sonnet-4-6';
   
-  // For now, we'll use a simple exec-based approach
-  // TODO: Replace with actual OpenClaw sessions_spawn integration
+  console.log(chalk.dim(`   Model: ${model}`));
+  console.log(chalk.dim(`   Task: ${testCase.name}`));
+  
   try {
-    // Execute the agent harness (this would be replaced with sessions_spawn)
-    const output = execSync(`node ${adapterPath} --task ${testCase.task}`, {
-      encoding: 'utf-8',
-      timeout: timeoutMs,
-      cwd: workspacePath,
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
+        'X-Title': 'Harness Trainer',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
     });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} ${error}`);
+    }
+    
+    const data = await response.json();
+    const output = data.choices?.[0]?.message?.content || '';
+    const tokenUsage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    
+    if (!output) {
+      throw new Error('Empty response from API');
+    }
+    
+    // Save output to file for inspection
+    const outputPath = join(workspacePath, 'tests', 'last-output.md');
+    writeFileSync(outputPath, output);
+    
+    console.log(chalk.dim(`   Tokens: ${tokenUsage.prompt_tokens} → ${tokenUsage.completion_tokens}`));
     
     return {
       success: true,
       output,
+      tokenUsage: {
+        input: tokenUsage.prompt_tokens,
+        output: tokenUsage.completion_tokens,
+      },
     };
   } catch (error: any) {
+    console.log(chalk.red(`   API Error: ${error.message}`));
     return {
       success: false,
-      output: error.stdout || '',
-      error: error.stderr || error.message,
+      output: '',
+      error: error.message,
     };
   }
+}
+
+/**
+ * Builds the prompt sent to the agent.
+ */
+function buildAgentPrompt(testCase: TestCase, spec: AgentSpec): string {
+  return `You are ${spec.agentId} — ${spec.role}.
+
+## Your Task
+${testCase.task}
+
+## What Success Looks Like
+${testCase.expectedOutput}
+
+## Success Criteria
+${testCase.successCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+---
+
+**Instructions:**
+- Follow your SOUL.md instructions
+- Complete the task above
+- Output only your final work (no meta-commentary)
+
+Begin:`;
 }
 
 /**
