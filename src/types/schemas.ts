@@ -1,9 +1,19 @@
 import { z } from 'zod';
+import { readFileSync } from 'fs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AGENT SPEC SCHEMA
 // The input to harness generation
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Loads and validates an agent spec from a JSON file.
+ */
+export function loadSpec(specPath: string): AgentSpec {
+  const content = readFileSync(specPath, 'utf-8');
+  const parsed = JSON.parse(content);
+  return AgentSpecSchema.parse(parsed);
+}
 
 export const ToolSchema = z.object({
   name: z.string().describe('Tool identifier (e.g., "web_search", "exec")'),
