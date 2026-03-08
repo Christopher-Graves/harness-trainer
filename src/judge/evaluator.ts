@@ -163,48 +163,69 @@ Do not include any text before or after the JSON.`;
 /**
  * Calls the Judge model to evaluate agent output.
  * 
- * Uses OpenRouter API for Opus access.
+ * Priority: ANTHROPIC_API_KEY (direct) > OPENROUTER_API_KEY (proxy)
  */
 async function callJudgeModel(prompt: string, model: string): Promise<string> {
-  // Check for OpenRouter API key
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
   
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY not set. Judge requires API access.');
+  if (!anthropicKey && !openrouterKey) {
+    throw new Error('No API key found. Set ANTHROPIC_API_KEY or OPENROUTER_API_KEY in .env');
   }
+  
+  const useAnthropic = !!anthropicKey;
+  const judgeModel = useAnthropic ? 'claude-sonnet-4-5-20241022' : 'anthropic/claude-3-5-sonnet-20241022';
   
   // Show progress while waiting for judge
   const stopProgress = startProgress('Evaluating agent output');
   
-  // Call OpenRouter API
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
-      'X-Title': 'Harness Trainer Judge',
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-3-5-sonnet-20241022', // Using Sonnet for cost efficiency
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert evaluator of AI agent performance. You score agents on task completion, error recovery, clean state, token efficiency, and self-learning. Return ONLY valid JSON with scores, feedback, and suggestions.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.1, // Low temp for consistent scoring
-      max_tokens: 1000,
-    }),
-  });
+  const systemContent = 'You are an expert evaluator of AI agent performance. You score agents on task completion, error recovery, clean state, token efficiency, and self-learning. Return ONLY valid JSON with scores, feedback, and suggestions.';
+  
+  let response: Response;
+  
+  if (useAnthropic) {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicKey!,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: judgeModel,
+        system: systemContent,
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
+    });
+  } else {
+    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openrouterKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
+        'X-Title': 'Harness Trainer Judge',
+      },
+      body: JSON.stringify({
+        model: judgeModel,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
+    });
+  }
   
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Judge API call failed: ${response.status} ${errorText}`);
+    const provider = useAnthropic ? 'Anthropic' : 'OpenRouter';
+    throw new Error(`Judge API call failed (${provider} ${response.status}): ${errorText}`);
   }
   
   const data = await response.json();
@@ -212,7 +233,12 @@ async function callJudgeModel(prompt: string, model: string): Promise<string> {
   // Stop progress
   stopProgress();
   
-  return data.choices[0].message.content;
+  // Parse response based on provider
+  if (useAnthropic) {
+    return data.content?.[0]?.text || '';
+  } else {
+    return data.choices[0].message.content;
+  }
 }
 
 /**

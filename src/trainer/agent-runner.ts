@@ -101,9 +101,9 @@ export async function runAgent(options: {
 }
 
 /**
- * Runs agent using OpenRouter API (simulating OpenClaw agent execution).
+ * Runs agent using LLM API (Anthropic direct or OpenRouter).
  * 
- * This allows testing the full loop without needing OpenClaw runtime.
+ * Priority: ANTHROPIC_API_KEY (direct) > OPENROUTER_API_KEY (proxy)
  * Uses the agent's SOUL.md as system prompt.
  */
 async function runWithOpenClaw(
@@ -112,13 +112,15 @@ async function runWithOpenClaw(
   testCase: TestCase,
   timeoutMs: number
 ): Promise<RunResult> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
   
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY not set in .env file');
+  if (!anthropicKey && !openrouterKey) {
+    throw new Error('No API key found. Set ANTHROPIC_API_KEY or OPENROUTER_API_KEY in .env file');
   }
   
-  console.log(chalk.dim('   Using OpenRouter API (OpenClaw mode)...'));
+  const useAnthropic = !!anthropicKey;
+  console.log(chalk.dim(`   API: ${useAnthropic ? 'Anthropic (direct)' : 'OpenRouter'}`));
   
   // Load agent's SOUL.md for system prompt
   const soulPath = join(workspacePath, 'harness', 'SOUL.md');
@@ -130,8 +132,9 @@ async function runWithOpenClaw(
   // Build the user prompt from test case
   const userPrompt = buildAgentPrompt(testCase, spec);
   
-  // Call OpenRouter API
-  const model = spec.model?.primary || 'anthropic/claude-sonnet-4-6';
+  // Resolve model name (strip "anthropic/" prefix for direct Anthropic calls)
+  const specModel = spec.model?.primary || 'anthropic/claude-sonnet-4-6';
+  const model = useAnthropic ? specModel.replace('anthropic/', '') : specModel;
   
   console.log(chalk.dim(`   Model: ${model}`));
   console.log(chalk.dim(`   Task: ${testCase.name}`));
@@ -144,39 +147,80 @@ async function runWithOpenClaw(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
-        'X-Title': 'Harness Trainer',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-      signal: controller.signal,
-    });
+    let response: Response;
+    
+    if (useAnthropic) {
+      // Direct Anthropic API
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': anthropicKey!,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model,
+          system: systemPrompt,
+          messages: [
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+        signal: controller.signal,
+      });
+    } else {
+      // OpenRouter API
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openrouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://github.com/Christopher-Graves/harness-trainer',
+          'X-Title': 'Harness Trainer',
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+        signal: controller.signal,
+      });
+    }
     
     clearTimeout(timeoutId);
     
-    // Stop spinner
+    // Stop progress
     stopProgress();
     
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenRouter API error (${response.status}): ${error}`);
+      const provider = useAnthropic ? 'Anthropic' : 'OpenRouter';
+      throw new Error(`${provider} API error (${response.status}): ${error}`);
     }
     
     const data = await response.json();
-    const output = data.choices?.[0]?.message?.content || '';
-    const tokenUsage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    
+    // Parse response (different format for Anthropic vs OpenRouter)
+    let output: string;
+    let tokenUsage: { prompt_tokens: number; completion_tokens: number };
+    
+    if (useAnthropic) {
+      // Anthropic format: data.content[0].text, data.usage.input_tokens/output_tokens
+      output = data.content?.[0]?.text || '';
+      tokenUsage = {
+        prompt_tokens: data.usage?.input_tokens || 0,
+        completion_tokens: data.usage?.output_tokens || 0,
+      };
+    } else {
+      // OpenRouter format: data.choices[0].message.content
+      output = data.choices?.[0]?.message?.content || '';
+      tokenUsage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    }
     
     if (!output) {
       throw new Error('Empty response from API (no content in choices)');

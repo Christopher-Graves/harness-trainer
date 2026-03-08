@@ -1,7 +1,7 @@
 # 🎯 Training Results: linkedin-writer
 
 **Date:** 3/8/2026
-**Iterations:** 3
+**Iterations:** 1
 **Average Score:** 0.00/10
 **Best:** 0.00/10 | **Worst:** 0.00/10
 
