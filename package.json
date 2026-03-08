@@ -14,6 +14,7 @@
     "train": "tsx src/cli.ts train",
     "generate": "tsx src/cli.ts generate",
     "eval": "tsx src/cli.ts eval",
+    "quick": "tsx scripts/quick-train.ts",
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src/**/*.ts"
