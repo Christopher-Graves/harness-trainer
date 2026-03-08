@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import chalk from 'chalk';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { AgentSpecSchema } from './types/schemas.js';
+import chalk from 'chalk';
+import dotenv from 'dotenv';
 import { generateHarness } from './generator/generator.js';
 import { runTrainingSession } from './trainer/trainer.js';
-import { evaluateHarness } from './judge/evaluator.js';
+import { loadEvalSuite } from './judge/evaluator.js';
+import { AgentSpecSchema } from './types/schemas.js';
+
+// Load .env file if it exists
+dotenv.config();
 
 const program = new Command();
 
@@ -16,156 +20,235 @@ program
   .description('Autonomous agent harness training framework')
   .version('0.1.0');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GENERATE COMMAND
-// Creates a new agent workspace from a spec
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Generate a new agent harness from a spec.
+ */
 program
   .command('generate')
-  .description('Generate a new agent workspace from an agent spec')
-  .requiredOption('--spec <path>', 'Path to agent spec JSON file')
-  .option('--output <path>', 'Output directory for agent workspace', './agent-workspaces')
-  .action(async (options) => {
+  .description('Generate agent harness from spec file')
+  .argument('<spec>', 'Path to agent spec JSON file')
+  .option('-o, --output <path>', 'Output directory for agent workspace', 'agent-workspaces')
+  .option('--force', 'Overwrite existing workspace', false)
+  .action(async (specPath: string, options: { output: string; force: boolean }) => {
     try {
-      console.log(chalk.blue('🔧 Reading agent spec...'));
-      const specPath = resolve(options.spec);
-      const specContent = readFileSync(specPath, 'utf-8');
-      const spec = JSON.parse(specContent);
+      console.log(chalk.blue('🔧 Generating agent harness...'));
       
-      // Validate spec
-      const validatedSpec = AgentSpecSchema.parse(spec);
+      // Resolve paths
+      const specFullPath = resolve(specPath);
+      const outputDir = resolve(options.output);
       
-      console.log(chalk.green(`✓ Validated spec for agent: ${validatedSpec.agentId}`));
-      console.log(chalk.blue('🏗️  Generating harness files...'));
+      // Load and validate spec
+      if (!existsSync(specFullPath)) {
+        console.error(chalk.red(`Error: Spec file not found: ${specFullPath}`));
+        process.exit(1);
+      }
+      
+      const specContent = readFileSync(specFullPath, 'utf-8');
+      const spec = AgentSpecSchema.parse(JSON.parse(specContent));
+      
+      console.log(chalk.dim(`   Spec: ${specFullPath}`));
+      console.log(chalk.dim(`   Agent: ${spec.agentId}`));
+      console.log(chalk.dim(`   Output: ${outputDir}`));
       
       // Generate harness
-      const outputDir = resolve(options.output);
-      if (!existsSync(outputDir)) {
-        mkdirSync(outputDir, { recursive: true });
-      }
+      const workspacePath = await generateHarness({
+        spec,
+        outputDir,
+        force: options.force,
+      });
       
-      const harnessFiles = await generateHarness(validatedSpec);
-      const workspacePath = join(outputDir, validatedSpec.agentId);
-      
-      // Write files
-      mkdirSync(workspacePath, { recursive: true });
-      mkdirSync(join(workspacePath, 'harness'), { recursive: true });
-      mkdirSync(join(workspacePath, 'tests'), { recursive: true });
-      mkdirSync(join(workspacePath, 'runtime'), { recursive: true });
-      
-      writeFileSync(join(workspacePath, 'harness', 'SOUL.md'), harnessFiles.soul);
-      writeFileSync(join(workspacePath, 'harness', 'AGENTS.md'), harnessFiles.agents);
-      writeFileSync(join(workspacePath, 'harness', 'MEMORY.md'), harnessFiles.memory);
-      writeFileSync(join(workspacePath, 'harness', 'LEARNINGS.md'), harnessFiles.learnings);
-      
-      if (harnessFiles.toolsConfig) {
-        writeFileSync(join(workspacePath, 'tools.json'), harnessFiles.toolsConfig);
-      }
-      
-      if (harnessFiles.runtimeAdapter) {
-        writeFileSync(join(workspacePath, 'runtime', 'adapter.js'), harnessFiles.runtimeAdapter);
-      }
-      
-      // Write test suite
-      writeFileSync(
-        join(workspacePath, 'tests', 'eval-suite.json'),
-        JSON.stringify({ tests: harnessFiles.tests }, null, 2)
-      );
-      
-      // Write agent spec for reference
-      writeFileSync(
-        join(workspacePath, 'spec.json'),
-        JSON.stringify(validatedSpec, null, 2)
-      );
-      
-      console.log(chalk.green('✓ Harness generated successfully!'));
+      console.log(chalk.green('\n✓ Harness generated successfully!'));
       console.log(chalk.dim(`   Workspace: ${workspacePath}`));
-      console.log(chalk.dim(`   Files: SOUL.md, AGENTS.md, MEMORY.md, LEARNINGS.md, eval-suite.json`));
+      console.log(chalk.dim(`\nNext steps:`));
+      console.log(chalk.dim(`   1. Review generated files in ${workspacePath}/harness/`));
+      console.log(chalk.dim(`   2. Customize SOUL.md and AGENTS.md as needed`));
+      console.log(chalk.dim(`   3. Run: harness-trainer train ${workspacePath}`));
       
-    } catch (error: any) {
-      console.error(chalk.red('✗ Error:'), error.message);
+    } catch (error) {
+      console.error(chalk.red('\n✗ Generation failed:'));
+      console.error(error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TRAIN COMMAND
-// Runs the training loop
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Run a training session.
+ */
 program
   .command('train')
-  .description('Run a training session to improve an agent harness')
-  .requiredOption('--workspace <path>', 'Path to agent workspace')
-  .option('--iterations <number>', 'Number of training iterations', '10')
-  .option('--judge-model <model>', 'Model to use for judging (default: opus)', 'anthropic/claude-opus-4-6')
-  .option('--output <path>', 'Output directory for training results', './output')
-  .action(async (options) => {
+  .description('Run training session for an agent')
+  .argument('<workspace>', 'Path to agent workspace')
+  .option('-i, --iterations <n>', 'Number of training iterations', '10')
+  .option('-j, --judge <model>', 'Judge model to use', 'anthropic/claude-3-5-sonnet-20241022')
+  .option('-r, --runtime <type>', 'Runtime to use (openclaw|claude-code|custom)', 'openclaw')
+  .option('-t, --timeout <ms>', 'Timeout per iteration in ms', '300000')
+  .option('-o, --output <path>', 'Output directory for results', 'results')
+  .action(async (workspace: string, options: { 
+    iterations: string; 
+    judge: string; 
+    runtime: 'openclaw' | 'claude-code' | 'custom'; 
+    timeout: string;
+    output: string;
+  }) => {
     try {
-      console.log(chalk.blue('🎯 Starting training session...'));
-      const workspacePath = resolve(options.workspace);
-      const iterations = parseInt(options.iterations);
+      // Check for API key
+      if (!process.env.OPENROUTER_API_KEY) {
+        console.error(chalk.red('\n⚠ Error: OPENROUTER_API_KEY not set'));
+        console.error(chalk.dim('   Create a .env file or export the environment variable'));
+        console.error(chalk.dim('   Get your key at: https://openrouter.ai/keys'));
+        console.error(chalk.dim('\n   Example .env:'));
+        console.error(chalk.dim('   OPENROUTER_API_KEY=sk-or-v1-your-key-here'));
+        process.exit(1);
+      }
       
+      console.log(chalk.blue('🎯 Starting training session...'));
+      
+      // Resolve paths
+      const workspacePath = resolve(workspace);
+      const outputPath = resolve(options.output);
+      const iterations = parseInt(options.iterations, 10);
+      const timeoutMs = parseInt(options.timeout, 10);
+      
+      // Validate workspace
+      if (!existsSync(workspacePath)) {
+        console.error(chalk.red(`Error: Workspace not found: ${workspacePath}`));
+        process.exit(1);
+      }
+      
+      const specPath = join(workspacePath, 'spec.json');
+      if (!existsSync(specPath)) {
+        console.error(chalk.red(`Error: spec.json not found in workspace`));
+        process.exit(1);
+      }
+      
+      const evalSuitePath = join(workspacePath, 'tests', 'eval-suite.json');
+      if (!existsSync(evalSuitePath)) {
+        console.error(chalk.red(`Error: eval-suite.json not found in workspace/tests/`));
+        process.exit(1);
+      }
+      
+      console.log(chalk.dim(`   Workspace: ${workspacePath}`));
+      console.log(chalk.dim(`   Iterations: ${iterations}`));
+      console.log(chalk.dim(`   Judge: ${options.judge}`));
+      console.log(chalk.dim(`   Runtime: ${options.runtime}`));
+      console.log(chalk.dim(`   Timeout: ${timeoutMs}ms`));
+      console.log(chalk.dim(`   Output: ${outputPath}`));
+      
+      // Run training
       const session = await runTrainingSession({
         workspacePath,
         iterations,
-        judgeModel: options.judgeModel,
-        outputPath: resolve(options.output),
+        judgeModel: options.judge,
+        outputPath,
+        runtime: options.runtime,
+        timeoutMs,
       });
       
-      console.log(chalk.green('✓ Training session completed!'));
+      console.log(chalk.green('\n✓ Training session completed!'));
       console.log(chalk.dim(`   Final score: ${session.finalScore?.toFixed(3)}`));
-      console.log(chalk.dim(`   Iterations: ${session.iterations}`));
-      console.log(chalk.dim(`   Results: ${resolve(options.output)}`));
-      
-    } catch (error: any) {
-      console.error(chalk.red('✗ Training failed:'), error.message);
-      process.exit(1);
-    }
-  });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EVAL COMMAND
-// Evaluates a harness against its test suite
-// ─────────────────────────────────────────────────────────────────────────────
-
-program
-  .command('eval')
-  .description('Evaluate an agent harness against its test suite')
-  .requiredOption('--workspace <path>', 'Path to agent workspace')
-  .option('--judge-model <model>', 'Model to use for judging', 'anthropic/claude-opus-4-6')
-  .option('--output <path>', 'Output path for eval results', './output/eval-results.json')
-  .action(async (options) => {
-    try {
-      console.log(chalk.blue('📊 Evaluating harness...'));
-      const workspacePath = resolve(options.workspace);
-      
-      const results = await evaluateHarness({
-        workspacePath,
-        judgeModel: options.judgeModel,
-      });
-      
-      // Write results
-      const outputPath = resolve(options.output);
-      mkdirSync(join(outputPath, '..'), { recursive: true });
-      writeFileSync(outputPath, JSON.stringify(results, null, 2));
-      
-      console.log(chalk.green('✓ Evaluation completed!'));
       console.log(chalk.dim(`   Results: ${outputPath}`));
       
-      // Print summary
-      const avgScore = results.reduce((sum, r) => sum + r.overallScore, 0) / results.length;
-      console.log(chalk.dim(`   Average score: ${avgScore.toFixed(3)}`));
-      
-    } catch (error: any) {
-      console.error(chalk.red('✗ Evaluation failed:'), error.message);
+    } catch (error) {
+      console.error(chalk.red('\n✗ Training failed:'));
+      console.error(error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RUN
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Evaluate a harness without training.
+ */
+program
+  .command('eval')
+  .description('Evaluate harness on test suite (single run)')
+  .argument('<workspace>', 'Path to agent workspace')
+  .option('-t, --test <name>', 'Specific test to run (default: all)')
+  .option('-j, --judge <model>', 'Judge model to use', 'anthropic/claude-3-5-sonnet-20241022')
+  .option('-r, --runtime <type>', 'Runtime to use (openclaw|claude-code|custom)', 'openclaw')
+  .action(async (workspace: string, options: { 
+    test?: string; 
+    judge: string; 
+    runtime: 'openclaw' | 'claude-code' | 'custom';
+  }) => {
+    try {
+      // Check for API key
+      if (!process.env.OPENROUTER_API_KEY) {
+        console.error(chalk.red('\n⚠ Error: OPENROUTER_API_KEY not set'));
+        console.error(chalk.dim('   Create a .env file or export the environment variable'));
+        process.exit(1);
+      }
+      
+      console.log(chalk.blue('🔍 Evaluating harness...'));
+      
+      const workspacePath = resolve(workspace);
+      
+      // Load eval suite
+      const evalSuite = loadEvalSuite(workspacePath);
+      
+      // Filter tests if specific test requested
+      const tests = options.test
+        ? evalSuite.tests.filter(t => t.name === options.test)
+        : evalSuite.tests;
+      
+      if (tests.length === 0) {
+        console.error(chalk.red(`Error: Test not found: ${options.test}`));
+        process.exit(1);
+      }
+      
+      console.log(chalk.dim(`   Workspace: ${workspacePath}`));
+      console.log(chalk.dim(`   Tests: ${tests.length}`));
+      console.log(chalk.dim(`   Judge: ${options.judge}`));
+      
+      // Run each test
+      for (const testCase of tests) {
+        console.log(chalk.yellow(`\n📍 Testing: ${testCase.name}`));
+        
+        // TODO: Import and call evaluateHarness
+        // For now, just show placeholder
+        console.log(chalk.dim('   Evaluation not yet fully implemented'));
+        console.log(chalk.dim('   Run "harness-trainer train" for full training loop'));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('\n✗ Evaluation failed:'));
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+/**
+ * List available test cases.
+ */
+program
+  .command('list-tests')
+  .description('List test cases in an agent workspace')
+  .argument('<workspace>', 'Path to agent workspace')
+  .action((workspace: string) => {
+    try {
+      const workspacePath = resolve(workspace);
+      const evalSuitePath = join(workspacePath, 'tests', 'eval-suite.json');
+      
+      if (!existsSync(evalSuitePath)) {
+        console.error(chalk.red(`Error: eval-suite.json not found`));
+        process.exit(1);
+      }
+      
+      const evalSuite = JSON.parse(readFileSync(evalSuitePath, 'utf-8'));
+      
+      console.log(chalk.blue(`\n📋 Test cases in ${workspacePath}:\n`));
+      
+      evalSuite.tests.forEach((test: any, i: number) => {
+        console.log(chalk.white(`${i + 1}. ${test.name}`));
+        console.log(chalk.dim(`   ${test.description}`));
+        console.log(chalk.dim(`   Task: ${test.task.substring(0, 100)}...`));
+        console.log();
+      });
+      
+    } catch (error) {
+      console.error(chalk.red('\n✗ Failed to list tests:'));
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
 
 program.parse();
