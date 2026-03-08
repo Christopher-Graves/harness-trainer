@@ -7,7 +7,7 @@
  */
 
 import { generateHarness } from '../src/generator/generator.js';
-import { runTraining } from '../src/trainer/trainer.js';
+import { runTrainingSession } from '../src/trainer/trainer.js';
 import { loadSpec } from '../src/types/schemas.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -32,12 +32,16 @@ async function quickTrain(specPath: string, iterations: number = 3) {
   console.log(chalk.dim(`\nStep 3: Training agent (${iterations} iterations)...`));
   console.log(chalk.dim('   This may take a few minutes per iteration\n'));
   
-  const results = await runTraining({
-    workspace: workspacePath,
+  const session = await runTrainingSession({
+    workspacePath: workspacePath,
     iterations,
-    model: spec.model?.primary,
+    judgeModel: 'anthropic/claude-sonnet-4-6',
+    outputPath: join(process.cwd(), 'results'),
+    runtime: spec.runtime || 'openclaw',
     timeoutMs: 120000, // 2 minutes per iteration
   });
+  
+  const results = session.evalResults;
   
   // Step 4: Show summary
   console.log(chalk.blue('\n✅ Training Complete!\n'));
