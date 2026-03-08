@@ -3,6 +3,38 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { EvalResult, TestCase, EvalSuite } from '../types/schemas.js';
 
+// Spinner animation (same as agent-runner)
+const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let spinnerTimer: NodeJS.Timeout | null = null;
+
+function startSpinner(message: string) {
+  let frameIndex = 0;
+  let currentLine = '';
+  
+  spinnerTimer = setInterval(() => {
+    const frame = spinnerFrames[frameIndex % spinnerFrames.length];
+    const line = `   ${chalk.dim(frame)} ${message}`;
+    
+    if (currentLine) {
+      console.log('\x1b[1G');
+      console.log('\x1b[K');
+    }
+    
+    console.log(line);
+    currentLine = line;
+    frameIndex++;
+  }, 80);
+  
+  return () => {
+    if (spinnerTimer) {
+      clearInterval(spinnerTimer);
+      spinnerTimer = null;
+      console.log('\x1b[1G');
+      console.log('\x1b[K');
+    }
+  };
+}
+
 /**
  * Evaluates an agent harness against its test suite.
  * 
@@ -154,6 +186,9 @@ async function callJudgeModel(prompt: string, model: string): Promise<string> {
     throw new Error('OPENROUTER_API_KEY not set. Judge requires API access.');
   }
   
+  // Start spinner while waiting for judge
+  const stopSpinner = startSpinner('Evaluating agent output...');
+  
   // Call OpenRouter API
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -186,6 +221,10 @@ async function callJudgeModel(prompt: string, model: string): Promise<string> {
   }
   
   const data = await response.json();
+  
+  // Stop spinner
+  stopSpinner();
+  
   return data.choices[0].message.content;
 }
 

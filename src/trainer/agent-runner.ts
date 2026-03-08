@@ -8,6 +8,42 @@ import dotenv from 'dotenv';
 // Load .env for API keys
 dotenv.config();
 
+/**
+ * Spinner animation for showing progress during long operations.
+ */
+const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let spinnerTimer: NodeJS.Timeout | null = null;
+
+function startSpinner(message: string) {
+  let frameIndex = 0;
+  let currentLine = '';
+  
+  spinnerTimer = setInterval(() => {
+    const frame = spinnerFrames[frameIndex % spinnerFrames.length];
+    const line = `   ${chalk.dim(frame)} ${message}`;
+    
+    // Clear the previous line
+    if (currentLine) {
+      console.log('\x1b[1G'); // Move cursor to beginning of line
+      console.log('\x1b[K');  // Clear the line
+    }
+    
+    console.log(line);
+    currentLine = line;
+    frameIndex++;
+  }, 80);
+  
+  return () => {
+    if (spinnerTimer) {
+      clearInterval(spinnerTimer);
+      spinnerTimer = null;
+      // Clear the spinner line
+      console.log('\x1b[1G');
+      console.log('\x1b[K');
+    }
+  };
+}
+
 interface RunResult {
   success: boolean;
   output: string;
@@ -114,6 +150,9 @@ async function runWithOpenClaw(
   console.log(chalk.dim(`   Model: ${model}`));
   console.log(chalk.dim(`   Task: ${testCase.name}`));
   
+  // Start spinner while waiting for API
+  const stopSpinner = startSpinner('Waiting for agent response...');
+  
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -142,6 +181,9 @@ async function runWithOpenClaw(
     const data = await response.json();
     const output = data.choices?.[0]?.message?.content || '';
     const tokenUsage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    
+    // Stop spinner
+    stopSpinner();
     
     if (!output) {
       throw new Error('Empty response from API');
