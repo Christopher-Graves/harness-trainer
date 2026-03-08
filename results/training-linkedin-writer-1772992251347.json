@@ -1,0 +1,59 @@
+{
+  "agentId": "linkedin-writer",
+  "startedAt": "2026-03-08T17:50:50.600Z",
+  "iterations": 3,
+  "evalResults": [
+    {
+      "taskId": "test-1-write",
+      "timestamp": "2026-03-08T17:50:50.885Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: Insufficient Credits (402): Add credits at https://openrouter.ai/settings/credits",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    },
+    {
+      "taskId": "test-2-craft",
+      "timestamp": "2026-03-08T17:50:51.156Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: Insufficient Credits (402): Add credits at https://openrouter.ai/settings/credits",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    },
+    {
+      "taskId": "test-3-structure",
+      "timestamp": "2026-03-08T17:50:51.347Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: Insufficient Credits (402): Add credits at https://openrouter.ai/settings/credits",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    }
+  ],
+  "harnessVersions": [],
+  "status": "completed",
+  "finalScore": 0,
+  "completedAt": "2026-03-08T17:50:51.347Z"
+}

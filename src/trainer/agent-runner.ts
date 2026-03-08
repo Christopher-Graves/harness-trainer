@@ -9,31 +9,23 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Spinner animation for showing progress during long operations.
- * Updates in-place on a single line.
+ * Simple progress dots for showing activity during long operations.
+ * Appends dots to a single line — works in all terminals.
  */
-const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerTimer: NodeJS.Timeout | null = null;
+let progressTimer: NodeJS.Timeout | null = null;
 
-function startSpinner(message: string) {
-  let frameIndex = 0;
+function startProgress(message: string) {
+  process.stdout.write(`   ${message}`);
   
-  // Write initial spinner
-  process.stdout.write(`   ${chalk.dim(spinnerFrames[0])} ${message}`);
-  
-  spinnerTimer = setInterval(() => {
-    const frame = spinnerFrames[frameIndex % spinnerFrames.length];
-    // Move cursor to beginning of line, clear it, write new frame
-    process.stdout.write(`\r\x1b[K   ${chalk.dim(frame)} ${message}`);
-    frameIndex++;
-  }, 80);
+  progressTimer = setInterval(() => {
+    process.stdout.write('.');
+  }, 1000);
   
   return () => {
-    if (spinnerTimer) {
-      clearInterval(spinnerTimer);
-      spinnerTimer = null;
-      // Clear the spinner line and move to new line
-      process.stdout.write('\r\x1b[K');
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+      process.stdout.write('\n');
     }
   };
 }
@@ -145,8 +137,8 @@ async function runWithOpenClaw(
   console.log(chalk.dim(`   Task: ${testCase.name}`));
   console.log(chalk.dim(`   Timeout: ${Math.round(timeoutMs / 1000)}s`));
   
-  // Start spinner while waiting for API
-  const stopSpinner = startSpinner('Calling LLM API...');
+  // Show progress while waiting for API
+  const stopProgress = startProgress('Calling LLM API');
   
   try {
     const controller = new AbortController();
@@ -175,7 +167,7 @@ async function runWithOpenClaw(
     clearTimeout(timeoutId);
     
     // Stop spinner
-    stopSpinner();
+    stopProgress();
     
     if (!response.ok) {
       const error = await response.text();
@@ -206,7 +198,7 @@ async function runWithOpenClaw(
     };
   } catch (error: any) {
     // Stop spinner on error
-    stopSpinner();
+    stopProgress();
     
     // Provide clear error messages
     let errorMessage = error.message;
@@ -218,6 +210,8 @@ async function runWithOpenClaw(
       errorMessage = 'Authentication Error (401): Invalid API key';
     } else if (error.message.includes('429')) {
       errorMessage = 'Rate Limit (429): Too many requests. Wait a moment and retry.';
+    } else if (error.message.includes('402')) {
+      errorMessage = 'Insufficient Credits (402): Add credits at https://openrouter.ai/settings/credits';
     } else if (error.message.includes('500') || error.message.includes('503')) {
       errorMessage = 'API Server Error: OpenRouter is having issues. Retry in a minute.';
     }

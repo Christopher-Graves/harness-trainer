@@ -3,30 +3,21 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { EvalResult, TestCase, EvalSuite } from '../types/schemas.js';
 
-// Spinner animation (same as agent-runner)
-// Updates in-place on a single line.
-const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerTimer: NodeJS.Timeout | null = null;
+// Simple progress dots — works in all terminals
+let progressTimer: NodeJS.Timeout | null = null;
 
-function startSpinner(message: string) {
-  let frameIndex = 0;
+function startProgress(message: string) {
+  process.stdout.write(`   ${message}`);
   
-  // Write initial spinner
-  process.stdout.write(`   ${chalk.dim(spinnerFrames[0])} ${message}`);
-  
-  spinnerTimer = setInterval(() => {
-    const frame = spinnerFrames[frameIndex % spinnerFrames.length];
-    // Move cursor to beginning of line, clear it, write new frame
-    process.stdout.write(`\r\x1b[K   ${chalk.dim(frame)} ${message}`);
-    frameIndex++;
-  }, 80);
+  progressTimer = setInterval(() => {
+    process.stdout.write('.');
+  }, 1000);
   
   return () => {
-    if (spinnerTimer) {
-      clearInterval(spinnerTimer);
-      spinnerTimer = null;
-      // Clear the spinner line
-      process.stdout.write('\r\x1b[K');
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+      process.stdout.write('\n');
     }
   };
 }
@@ -182,8 +173,8 @@ async function callJudgeModel(prompt: string, model: string): Promise<string> {
     throw new Error('OPENROUTER_API_KEY not set. Judge requires API access.');
   }
   
-  // Start spinner while waiting for judge
-  const stopSpinner = startSpinner('Evaluating agent output...');
+  // Show progress while waiting for judge
+  const stopProgress = startProgress('Evaluating agent output');
   
   // Call OpenRouter API
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -218,8 +209,8 @@ async function callJudgeModel(prompt: string, model: string): Promise<string> {
   
   const data = await response.json();
   
-  // Stop spinner
-  stopSpinner();
+  // Stop progress
+  stopProgress();
   
   return data.choices[0].message.content;
 }

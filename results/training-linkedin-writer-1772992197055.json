@@ -1,0 +1,59 @@
+{
+  "agentId": "linkedin-writer",
+  "startedAt": "2026-03-08T17:49:56.266Z",
+  "iterations": 3,
+  "evalResults": [
+    {
+      "taskId": "test-1-write",
+      "timestamp": "2026-03-08T17:49:56.599Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OpenRouter API error (402): {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 2000 tokens, but can only afford 1326. To increase, visit https://openrouter.ai/settings/credits and add more credits\",\"code\":402,\"metadata\":{\"provider_name\":null}},\"user_id\":\"user_3AXcwg7A6bVLFSgvkHwYHumd8rf\"}",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    },
+    {
+      "taskId": "test-2-craft",
+      "timestamp": "2026-03-08T17:49:56.905Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OpenRouter API error (402): {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 2000 tokens, but can only afford 1326. To increase, visit https://openrouter.ai/settings/credits and add more credits\",\"code\":402,\"metadata\":{\"provider_name\":null}},\"user_id\":\"user_3AXcwg7A6bVLFSgvkHwYHumd8rf\"}",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    },
+    {
+      "taskId": "test-3-structure",
+      "timestamp": "2026-03-08T17:49:57.053Z",
+      "scores": {
+        "taskCompletion": 0,
+        "errorRecovery": 0,
+        "cleanState": 0,
+        "tokenEfficiency": 0.5,
+        "selfLearn": 0
+      },
+      "overallScore": 0,
+      "feedback": "Agent failed: OpenRouter API error (402): {\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 2000 tokens, but can only afford 1326. To increase, visit https://openrouter.ai/settings/credits and add more credits\",\"code\":402,\"metadata\":{\"provider_name\":null}},\"user_id\":\"user_3AXcwg7A6bVLFSgvkHwYHumd8rf\"}",
+      "suggestions": [
+        "Fix agent execution error"
+      ]
+    }
+  ],
+  "harnessVersions": [],
+  "status": "completed",
+  "finalScore": 0,
+  "completedAt": "2026-03-08T17:49:57.053Z"
+}

@@ -6,12 +6,16 @@
  * Example: tsx scripts/quick-train.ts specs/linkedin-writer.json 5
  */
 
+import dotenv from 'dotenv';
 import { generateHarness } from '../src/generator/generator.js';
 import { runTrainingSession } from '../src/trainer/trainer.js';
 import { loadSpec } from '../src/types/schemas.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
+
+// Load .env file from project root
+dotenv.config();
 
 async function quickTrain(specPath: string, iterations: number = 3) {
   console.log(chalk.blue('\n🚀 Quick Train — Harness Trainer\n'));
