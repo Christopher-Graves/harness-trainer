@@ -10,26 +10,21 @@ dotenv.config();
 
 /**
  * Spinner animation for showing progress during long operations.
+ * Updates in-place on a single line.
  */
 const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 let spinnerTimer: NodeJS.Timeout | null = null;
 
 function startSpinner(message: string) {
   let frameIndex = 0;
-  let currentLine = '';
+  
+  // Write initial spinner
+  process.stdout.write(`   ${chalk.dim(spinnerFrames[0])} ${message}`);
   
   spinnerTimer = setInterval(() => {
     const frame = spinnerFrames[frameIndex % spinnerFrames.length];
-    const line = `   ${chalk.dim(frame)} ${message}`;
-    
-    // Clear the previous line
-    if (currentLine) {
-      console.log('\x1b[1G'); // Move cursor to beginning of line
-      console.log('\x1b[K');  // Clear the line
-    }
-    
-    console.log(line);
-    currentLine = line;
+    // Move cursor to beginning of line, clear it, write new frame
+    process.stdout.write(`\r\x1b[K   ${chalk.dim(frame)} ${message}`);
     frameIndex++;
   }, 80);
   
@@ -37,9 +32,8 @@ function startSpinner(message: string) {
     if (spinnerTimer) {
       clearInterval(spinnerTimer);
       spinnerTimer = null;
-      // Clear the spinner line
-      console.log('\x1b[1G');
-      console.log('\x1b[K');
+      // Clear the spinner line and move to new line
+      process.stdout.write('\r\x1b[K');
     }
   };
 }

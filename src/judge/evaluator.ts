@@ -4,24 +4,20 @@ import chalk from 'chalk';
 import { EvalResult, TestCase, EvalSuite } from '../types/schemas.js';
 
 // Spinner animation (same as agent-runner)
+// Updates in-place on a single line.
 const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 let spinnerTimer: NodeJS.Timeout | null = null;
 
 function startSpinner(message: string) {
   let frameIndex = 0;
-  let currentLine = '';
+  
+  // Write initial spinner
+  process.stdout.write(`   ${chalk.dim(spinnerFrames[0])} ${message}`);
   
   spinnerTimer = setInterval(() => {
     const frame = spinnerFrames[frameIndex % spinnerFrames.length];
-    const line = `   ${chalk.dim(frame)} ${message}`;
-    
-    if (currentLine) {
-      console.log('\x1b[1G');
-      console.log('\x1b[K');
-    }
-    
-    console.log(line);
-    currentLine = line;
+    // Move cursor to beginning of line, clear it, write new frame
+    process.stdout.write(`\r\x1b[K   ${chalk.dim(frame)} ${message}`);
     frameIndex++;
   }, 80);
   
@@ -29,8 +25,8 @@ function startSpinner(message: string) {
     if (spinnerTimer) {
       clearInterval(spinnerTimer);
       spinnerTimer = null;
-      console.log('\x1b[1G');
-      console.log('\x1b[K');
+      // Clear the spinner line
+      process.stdout.write('\r\x1b[K');
     }
   };
 }
